@@ -86,16 +86,29 @@ Configure the build tools:
 # specify Android build tools (tested with 34.0.0)
 ```
 
-Configure the dependency files:
-```bash
-./compiled_model_api/image_segmentation/c++_segmentation/build_from_source/deps.sh
-```
-
 ```bash
 bazel build //compiled_model_api/image_segmentation/c++_segmentation/build_from_source:cpp_segmentation_cpu --config=android_arm64
 bazel build //compiled_model_api/image_segmentation/c++_segmentation/build_from_source:cpp_segmentation_gpu --config=android_arm64
-bazel build //compiled_model_api/image_segmentation/c++_segmentation/build_from_source:cpp_segmentation_npu --config=android_arm64
+
+# For NPU Build
+# 1. Download QAIRT SDK v2.41+ and extract it.
+# 2. IMPORTANT: The Bazel configuration expects the SDK contents to be inside a 
+#    subdirectory named "latest".
+#    Example structure:
+#    /path/to/qairt_sdk/
+#      └── latest/
+#          ├── include/
+#          ├── lib/
+#          └── ...
+# 3. Pass the absolute path to the parent directory (ending with /) in the environment variable.
+bazel build //compiled_model_api/image_segmentation/c++_segmentation/build_from_source:cpp_segmentation_npu \
+  --config=android_arm64 \
+  --nocheck_visibility \
+  --action_env LITERT_QAIRT_SDK=/path/to/qairt_sdk/
 ```
+
+> [!NOTE]
+> The `--nocheck_visibility` flag is required because some upstream LiteRT targets have restricted visibility defaults that may conflict with external usage.
 
 ### Running the Executables
 After building, use the `deploy_and_run_on_android.sh` script to deploy and run the executables.
@@ -124,4 +137,3 @@ The output image `output_segmented.png` will be pulled from the device and saved
 | GPU                   | Async Exec + 0-copy buffer     | 17        |
 | NPU                   | Sync Exec (AOT)                | 17        |
 | NPU                   | Sync Exec (JIT)                | 28        |
-
