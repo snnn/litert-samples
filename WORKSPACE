@@ -247,6 +247,7 @@ http_archive(
     ],
 )
 
+# Manually declared here because Bazel does not inherit repository definitions from external archives (`@litert_archive`), and it is referenced by upstream build rules.
 http_archive(
     name = "dawn",
     add_prefix = "dawn",
@@ -256,6 +257,7 @@ http_archive(
     build_file = "@litert_archive//third_party/dawn:BUILD",
 )
 
+# Direct dependency for the C++ sample application (`image_utils.cc`). Provides `stb_image.h` for image loading and saving.
 new_git_repository(
     name = "stblib",
     remote = "https://github.com/nothings/stb",
