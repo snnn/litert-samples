@@ -11,3 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+package(default_visibility = ["//visibility:public"])
+
+# Pre-built LiteRT dispatch plugin for MediaTek APU (arm64-v8a).
+# Source: litert_npu_runtime_libraries/mediatek_runtime
+filegroup(
+    name = "litert_dispatch_mediatek_prebuilt",
+    srcs = [
+        "litert_npu_runtime_libraries/mediatek_runtime/src/main/jni/arm64-v8a/libLiteRtDispatch_MediaTek.so",
+    ],
+)
