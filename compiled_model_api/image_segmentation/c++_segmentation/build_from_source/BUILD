@@ -143,6 +143,39 @@ cc_binary(
     ] + gles_deps() + gl_native_deps(),
 )
 
+# MediaTek NPU target — does NOT depend on the Qualcomm QAIRT SDK.
+# The NeuroPilot runtime (libneuronusdk_adapter.mtk.so etc.) is a system lib
+# in /system_ext/lib64/ on MediaTek devices; nothing to download or link against.
+cc_binary(
+    name = "cpp_segmentation_npu_mtk",
+    srcs = [
+        "main_npu.cc",
+    ],
+    copts = [
+        "-I.",
+    ],
+    data = [
+        ":model_files",
+        ":shader_files",
+        ":test_images",
+        "@litert_archive//litert/c:litert_runtime_c_api_shared_lib",  # buildcleaner: keep
+        "@litert_archive//litert/vendors/mediatek/dispatch:dispatch_api_so",  # libLiteRtDispatch_MediaTek.so (version-matched with compiler plugin)
+        "@litert_archive//litert/vendors/mediatek/compiler:compiler_plugin_so",  # libLiteRtCompilerPlugin_MediaTek.so
+    ],
+    linkopts = gles_linkopts(),
+    deps = [
+        ":image_processor",
+        ":image_utils",
+        ":timing_utils",
+        "@litert_archive//litert/cc:litert_api_with_dynamic_runtime",
+        "@com_google_absl//absl/strings:string_view",
+        "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:span",
+    ] + gles_deps() + gl_native_deps(),
+)
+
+
+
 cc_library(
     name = "image_utils",
     srcs = ["image_utils.cc"],

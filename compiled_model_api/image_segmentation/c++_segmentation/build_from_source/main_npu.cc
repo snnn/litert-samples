@@ -35,11 +35,17 @@
 #include "compiled_model_api/image_segmentation/c++_segmentation/build_from_source/image_utils.h"
 #include "compiled_model_api/image_segmentation/c++_segmentation/build_from_source/timing_utils.h"
 
+// Device paths where NPU libraries are deployed by the deploy script.
+static constexpr absl::string_view kQualcommDispatchDir =
+    "/data/local/tmp/cpp_segmentation_android/npu/";
+static constexpr absl::string_view kMediatekDispatchDir =
+    "/data/local/tmp/cpp_segmentation_android/npu/";
+
 int main(int argc, char* argv[]) {
   if (argc < 4) {
     std::cerr << "Usage: " << argv[0]
               << " <model_path> <input_image_path> <output_image_path> "
-                 "[use_jit (true|false)]"
+                 "[use_jit (true|false)] [npu_vendor (qualcomm|mediatek)]"
               << std::endl;
     return 1;
   }
@@ -48,12 +54,21 @@ int main(int argc, char* argv[]) {
   const std::string input_file = argv[2];
   const std::string output_file = argv[3];
   const std::string use_jit_arg = argc > 4 ? argv[4] : "false";
+  const std::string npu_vendor = argc > 5 ? argv[5] : "qualcomm";
+
   bool use_jit = false;
   if (use_jit_arg == "true") {
     use_jit = true;
   } else if (use_jit_arg != "false") {
     std::cerr << "Warning: Unknown value for use_jit '" << use_jit_arg
               << "'. Defaulting to false." << std::endl;
+  }
+
+  const bool use_mediatek = (npu_vendor == "mediatek");
+  if (npu_vendor != "qualcomm" && npu_vendor != "mediatek") {
+    std::cerr << "Warning: Unknown npu_vendor '" << npu_vendor
+              << "'. Must be 'qualcomm' or 'mediatek'. Defaulting to qualcomm."
+              << std::endl;
   }
 
   std::vector<RGBAColor> mask_colors = {
@@ -69,16 +84,20 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  // Initialize LiteRT environment
+  // Initialize LiteRT environment, pointing at the directory where the
+  // dispatch (and optionally compiler) plugin .so files are deployed.
+  const absl::string_view dispatch_dir =
+      use_mediatek ? kMediatekDispatchDir : kQualcommDispatchDir;
+
   std::vector<litert::Environment::Option> environment_options;
   environment_options.push_back(litert::Environment::Option{
       litert::Environment::OptionTag::DispatchLibraryDir,
-      absl::string_view("/data/local/tmp/cpp_segmentation_android/npu/"),
+      dispatch_dir,
   });
   if (use_jit) {
     environment_options.push_back(litert::Environment::Option{
         litert::Environment::OptionTag::CompilerPluginLibraryDir,
-        absl::string_view("/data/local/tmp/cpp_segmentation_android/npu/"),
+        dispatch_dir,
     });
   }
   LITERT_ASSIGN_OR_ABORT(
@@ -89,11 +108,28 @@ int main(int argc, char* argv[]) {
   options.SetHardwareAccelerators(litert::HwAccelerators::kNpu |
                                   litert::HwAccelerators::kCpu);
 
- LITERT_ASSIGN_OR_ABORT(auto& qnn_opts, options.GetQualcommOptions());
-  qnn_opts.SetLogLevel(litert::qualcomm::QualcommOptions::LogLevel::kOff);
-  qnn_opts.SetHtpPerformanceMode(
-      litert::qualcomm::QualcommOptions::HtpPerformanceMode::kBurst);
-  std::cout << "Enabled Qualcomm NPU Burst Mode." << std::endl;
+  if (use_mediatek) {
+    // ---- MediaTek APU options ----
+    LITERT_ASSIGN_OR_ABORT(auto& mtk_opts, options.GetMediatekOptions());
+    // Use the fastest single-answer mode (analogous to Qualcomm's kBurst).
+    mtk_opts.SetPerformanceMode(
+        kLiteRtMediatekNeuronAdapterPerformanceModeNeuronPreferFastSingleAnswer);
+    // Maximise APU core usage to minimise latency.
+    mtk_opts.SetOptimizationHint(
+        kLiteRtMediatekNeuronAdapterOptimizationHintLowLatency);
+    // Target NeuroPilot SDK v8 (Dimensity 9000+ devices).
+    mtk_opts.SetNeronSDKVersionType(
+        kLiteRtMediatekOptionsNeronSDKVersionTypeVersion8);
+    std::cout << "Enabled MediaTek APU: FastSingleAnswer + LowLatency hint."
+              << std::endl;
+  } else {
+    // ---- Qualcomm HTP options ----
+    LITERT_ASSIGN_OR_ABORT(auto& qnn_opts, options.GetQualcommOptions());
+    qnn_opts.SetLogLevel(litert::qualcomm::QualcommOptions::LogLevel::kOff);
+    qnn_opts.SetHtpPerformanceMode(
+        litert::qualcomm::QualcommOptions::HtpPerformanceMode::kBurst);
+    std::cout << "Enabled Qualcomm NPU Burst Mode." << std::endl;
+  }
 
   LITERT_ASSIGN_OR_ABORT(auto compiled_model, litert::CompiledModel::Create(
                                                   env, model_path, options));

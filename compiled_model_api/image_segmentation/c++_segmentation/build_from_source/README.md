@@ -105,6 +105,11 @@ bazel build //compiled_model_api/image_segmentation/c++_segmentation/build_from_
   --config=android_arm64 \
   --nocheck_visibility \
   --action_env LITERT_QAIRT_SDK=/path/to/qairt_sdk/
+
+# 4. MediaTek NPU (No extra SDK required)
+bazel build //compiled_model_api/image_segmentation/c++_segmentation/build_from_source:cpp_segmentation_npu_mtk \
+  --config=android_arm64 \
+  --nocheck_visibility
 ```
 
 > [!NOTE]
@@ -123,12 +128,15 @@ After building, use the `deploy_and_run_on_android.sh` script to deploy and run 
 ./compiled_model_api/image_segmentation/c++_segmentation/build_from_source/deploy_and_run_on_android.sh --accelerator=npu --phone=s25 bazel-bin/
 # For NPU with just-in-time (jit) compilation of the model
 ./compiled_model_api/image_segmentation/c++_segmentation/build_from_source/deploy_and_run_on_android.sh --accelerator=npu --phone=s25 --jit bazel-bin/
+
+# For MediaTek APU (dim9400)
+./compiled_model_api/image_segmentation/c++_segmentation/build_from_source/deploy_and_run_on_android.sh --accelerator=npu --phone=dim9400 --jit bazel-bin/
 ```
 The output image `output_segmented.png` will be pulled from the device and saved in the current directory.
 
 ### Performance
 
-*Performance measured on Samsung S25 Ultra, includes both pre/post processing.*
+*Performance measured on Samsung S25 Ultra (Qualcomm) and MediaTek Dimensity 9400.*
 
 | Processor             | Execution Type                 | Time (ms) |
 | :-------------------- | :----------------------------- | :-------- |
@@ -137,3 +145,4 @@ The output image `output_segmented.png` will be pulled from the device and saved
 | GPU                   | Async Exec + 0-copy buffer     | 17        |
 | NPU                   | Sync Exec (AOT)                | 17        |
 | NPU                   | Sync Exec (JIT)                | 28        |
+| MediaTek APU          | Sync Exec (JIT)                | 9         |
